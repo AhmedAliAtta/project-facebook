@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Register</title>
 </head>
 <body>
@@ -11,6 +11,7 @@
   <input type="password" id="password" placeholder="Password" />
   <button onclick="register()">Register</button>
   <p>Already have an account? <a href="index.html">Login</a></p>
+
   <script type="module">
     import { auth } from './firebase.js';
     import { createUserWithEmailAndPassword } from 'firebase/auth';
@@ -23,8 +24,8 @@
         .then(() => {
           window.location.href = "home.html";
         })
-        .catch(err => alert(err.message));
-    }
+        .catch(err => alert("فشل في التسجيل: " + err.message));
+    };
   </script>
 </body>
 </html>
