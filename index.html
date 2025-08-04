@@ -1,3 +1,4 @@
+// 📁 index.html - Facebook Lite Clone with Features
 <!DOCTYPE html>
 <html lang="ar">
 <head>
@@ -7,6 +8,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-storage-compat.js"></script>
   <style>
     body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f5f5f5; }
     input, button, textarea { display: block; margin: 10px 0; width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
@@ -15,6 +17,9 @@
     #posts div { background: white; border-radius: 5px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
     .timestamp { font-size: 0.8em; color: gray; margin-top: 5px; }
     .likes { color: #1877f2; font-size: 0.9em; cursor: pointer; }
+    .post-image { max-width: 100%; border-radius: 5px; margin-top: 10px; }
+    .comment-box { margin-top: 10px; }
+    .comment { background: #f0f0f0; padding: 5px; margin-top: 5px; border-radius: 5px; font-size: 0.9em; }
   </style>
 </head>
 <body>
@@ -29,6 +34,7 @@
 
   <h2>إنشاء منشور</h2>
   <textarea id="postContent" placeholder="اكتب منشورك..."></textarea>
+  <input type="file" id="postImage" accept="image/*" />
   <button onclick="createPost()">نشر</button>
 
   <h2>المنشورات</h2>
@@ -39,7 +45,7 @@
       apiKey: "AIzaSyBzOHvecxpQrNe_oAQcPXgkJgAp-v3Whp0",
       authDomain: "facebook-f28ff.firebaseapp.com",
       projectId: "facebook-f28ff",
-      storageBucket: "facebook-f28ff.firebasestorage.app",
+      storageBucket: "facebook-f28ff.appspot.com",
       messagingSenderId: "204169075906",
       appId: "1:204169075906:web:476e29c4b18d5f14d92f5b",
       measurementId: "G-ZCEQXC02ET"
@@ -48,6 +54,7 @@
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
+    const storage = firebase.storage();
 
     auth.onAuthStateChanged(user => {
       if (user) {
@@ -82,16 +89,33 @@
 
     function createPost() {
       const content = document.getElementById('postContent').value;
+      const imageFile = document.getElementById('postImage').files[0];
       const user = auth.currentUser;
       if (!user) return alert('سجل الدخول أولاً');
-      if (!content.trim()) return alert('المحتوى لا يمكن أن يكون فارغاً');
+      if (!content.trim() && !imageFile) return alert('اكتب محتوى أو اختر صورة');
+
+      if (imageFile) {
+        const ref = storage.ref(`images/${Date.now()}_${imageFile.name}`);
+        ref.put(imageFile).then(snapshot => {
+          snapshot.ref.getDownloadURL().then(url => {
+            savePost(content, url);
+          });
+        });
+      } else {
+        savePost(content, '');
+      }
+    }
+
+    function savePost(content, imageUrl) {
       db.collection('posts').add({
-        user: user.email,
+        user: auth.currentUser.email,
         content,
+        imageUrl,
         likes: 0,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       }).then(() => {
         document.getElementById('postContent').value = '';
+        document.getElementById('postImage').value = '';
         loadPosts();
       });
     }
@@ -101,16 +125,55 @@
         .then(loadPosts);
     }
 
+    function addComment(postId, inputId) {
+      const content = document.getElementById(inputId).value;
+      const user = auth.currentUser;
+      if (!content.trim()) return;
+      db.collection('posts').doc(postId).collection('comments').add({
+        user: user.email,
+        content,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(loadPosts);
+    }
+
+    function loadComments(postId, containerId) {
+      const container = document.getElementById(containerId);
+      db.collection('posts').doc(postId).collection('comments').orderBy('createdAt').get()
+        .then(snapshot => {
+          container.innerHTML = snapshot.docs.map(doc => {
+            const c = doc.data();
+            return `<div class="comment"><b>${c.user}</b>: ${c.content}</div>`;
+          }).join('');
+        });
+    }
+
+    function deletePost(id) {
+      if (confirm('هل أنت متأكد أنك تريد حذف هذا المنشور؟')) {
+        db.collection('posts').doc(id).delete().then(loadPosts);
+      }
+    }
+
     function loadPosts() {
       db.collection('posts').orderBy('createdAt', 'desc').get()
         .then(snapshot => {
           const postsHtml = snapshot.docs.map(doc => {
             const p = doc.data();
             const date = p.createdAt?.toDate().toLocaleString() || '';
+            const img = p.imageUrl ? `<img class="post-image" src="${p.imageUrl}" />` : '';
+            const commentsContainerId = `comments-${doc.id}`;
+            const commentInputId = `comment-input-${doc.id}`;
             return `<div>
               <b>${p.user}</b><br>${p.content}
+              ${img}
               <div class="timestamp">${date}</div>
               <div class="likes" onclick="likePost('${doc.id}', ${p.likes || 0})">👍 ${p.likes || 0} إعجاب</div>
+              <button onclick="deletePost('${doc.id}')">🗑️ حذف</button>
+              <div class="comment-box">
+                <input type="text" id="${commentInputId}" placeholder="أضف تعليق..." />
+                <button onclick="addComment('${doc.id}', '${commentInputId}')">نشر</button>
+                <button onclick="loadComments('${doc.id}', '${commentsContainerId}')">عرض التعليقات</button>
+                <div id="${commentsContainerId}"></div>
+              </div>
             </div>`;
           }).join('');
           document.getElementById('posts').innerHTML = postsHtml;
