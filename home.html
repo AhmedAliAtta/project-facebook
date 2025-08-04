@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home</title>
+</head>
+<body>
+  <h2>Home</h2>
+  <textarea id="postText" placeholder="What's on your mind?"></textarea>
+  <button onclick="postStatus()">Post</button>
+  <div id="posts"></div>
+  <script type="module">
+    import { auth, db } from './firebase.js';
+    import { signOut, onAuthStateChanged } from 'firebase/auth';
+    import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+
+    const postInput = document.getElementById("postText");
+    const postsDiv = document.getElementById("posts");
+
+    window.postStatus = async () => {
+      if (postInput.value.trim() === "") return;
+      await addDoc(collection(db, "posts"), {
+        text: postInput.value,
+        createdAt: serverTimestamp(),
+        user: auth.currentUser.email
+      });
+      postInput.value = "";
+    };
+
+    onAuthStateChanged(auth, user => {
+      if (!user) window.location.href = "index.html";
+    });
+
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    onSnapshot(q, snapshot => {
+      postsDiv.innerHTML = "";
+      snapshot.forEach(doc => {
+        const p = document.createElement("p");
+        p.textContent = `${doc.data().user}: ${doc.data().text}`;
+        postsDiv.appendChild(p);
+      });
+    });
+  </script>
+</body>
+</html>
