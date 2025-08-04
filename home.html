@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Home</title>
 </head>
 <body>
@@ -10,6 +10,7 @@
   <textarea id="postText" placeholder="What's on your mind?"></textarea>
   <button onclick="postStatus()">Post</button>
   <div id="posts"></div>
+
   <script type="module">
     import { auth, db } from './firebase.js';
     import { signOut, onAuthStateChanged } from 'firebase/auth';
