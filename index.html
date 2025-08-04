@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Facebook Lite Clone</title>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.5.2/firebase-firestore-compat.js"></script>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 20px; background: #f5f5f5; }
+    input, button, textarea { display: block; margin: 10px 0; width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
+    button { background: #1877f2; color: white; border: none; cursor: pointer; }
+    button:hover { background: #0f5bd1; }
+    #posts div { background: white; border-radius: 5px; padding: 10px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .timestamp { font-size: 0.8em; color: gray; margin-top: 5px; }
+    .likes { color: #1877f2; font-size: 0.9em; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>تسجيل الدخول / إنشاء حساب</h1>
+  <input type="email" id="email" placeholder="البريد الإلكتروني" />
+  <input type="password" id="password" placeholder="كلمة المرور" />
+  <button onclick="signUp()">إنشاء حساب</button>
+  <button onclick="signIn()">تسجيل الدخول</button>
+  <button onclick="signOut()">تسجيل الخروج</button>
+
+  <div id="user-info" style="margin-top: 10px; font-weight: bold;"></div>
+
+  <h2>إنشاء منشور</h2>
+  <textarea id="postContent" placeholder="اكتب منشورك..."></textarea>
+  <button onclick="createPost()">نشر</button>
+
+  <h2>المنشورات</h2>
+  <div id="posts"></div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzOHvecxpQrNe_oAQcPXgkJgAp-v3Whp0",
+      authDomain: "facebook-f28ff.firebaseapp.com",
+      projectId: "facebook-f28ff",
+      storageBucket: "facebook-f28ff.firebasestorage.app",
+      messagingSenderId: "204169075906",
+      appId: "1:204169075906:web:476e29c4b18d5f14d92f5b",
+      measurementId: "G-ZCEQXC02ET"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('user-info').innerText = `مرحباً، ${user.email}`;
+        loadPosts();
+      } else {
+        document.getElementById('user-info').innerText = '';
+        document.getElementById('posts').innerHTML = '';
+      }
+    });
+
+    function signUp() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(() => alert('تم إنشاء الحساب'))
+        .catch(e => alert(e.message));
+    }
+
+    function signIn() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => alert('تم تسجيل الدخول'))
+        .catch(e => alert(e.message));
+    }
+
+    function signOut() {
+      auth.signOut()
+        .then(() => alert('تم تسجيل الخروج'));
+    }
+
+    function createPost() {
+      const content = document.getElementById('postContent').value;
+      const user = auth.currentUser;
+      if (!user) return alert('سجل الدخول أولاً');
+      if (!content.trim()) return alert('المحتوى لا يمكن أن يكون فارغاً');
+      db.collection('posts').add({
+        user: user.email,
+        content,
+        likes: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(() => {
+        document.getElementById('postContent').value = '';
+        loadPosts();
+      });
+    }
+
+    function likePost(id, currentLikes) {
+      db.collection('posts').doc(id).update({ likes: currentLikes + 1 })
+        .then(loadPosts);
+    }
+
+    function loadPosts() {
+      db.collection('posts').orderBy('createdAt', 'desc').get()
+        .then(snapshot => {
+          const postsHtml = snapshot.docs.map(doc => {
+            const p = doc.data();
+            const date = p.createdAt?.toDate().toLocaleString() || '';
+            return `<div>
+              <b>${p.user}</b><br>${p.content}
+              <div class="timestamp">${date}</div>
+              <div class="likes" onclick="likePost('${doc.id}', ${p.likes || 0})">👍 ${p.likes || 0} إعجاب</div>
+            </div>`;
+          }).join('');
+          document.getElementById('posts').innerHTML = postsHtml;
+        });
+    }
+  </script>
+</body>
+</html>
